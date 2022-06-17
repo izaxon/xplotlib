@@ -1,0 +1,67 @@
+<html>
+
+<head>
+   <title>XPlot lib test</title>
+</head>
+
+<body>
+   <script>
+      const _xplot_db_name = 'xplot';
+      const _xplot_db_table = 'data';
+
+      const _xplot_db_connect = (dbName, version, upgrade) => {
+         return new Promise((resolve, reject) => {
+            const request = window.indexedDB.open(dbName, version);
+            request.onsuccess = e => resolve(e.target.result);
+            request.onerror = reject;
+            request.onupgradeneeded = upgrade;
+         });
+      }
+
+      (async () => {
+         _xplot_db_connect(_xplot_db_name, 1.0, e => {
+            let _db = e.target.result;
+            const _store = _db.createObjectStore(_xplot_db_table, { keyPath: 'id', autoIncrement: true });
+         }).then(db => window.xplot = { db }).catch(e => console.error(e));
+      })();
+
+      const xplot_data_add = (data) => {
+         if (!window.xplot || !window.xplot.db) {
+            console.warn("Database not connected");
+         } else {
+            window.xplot.db.transaction([_xplot_db_table], 'readwrite')
+               .objectStore(_xplot_db_table)
+               .add({ timestamp: Date.now(), ...data })
+               // .onsuccess = () => console.log('added')
+               .onerror = e => console.error(e);
+         }
+      };
+
+      const xplot_data_getall = (onsuccess) => {
+         let data = [];
+         let objectStore = window.xplot.db.transaction(_xplot_db_table).objectStore(_xplot_db_table);
+         objectStore.openCursor().onsuccess = event => {
+            var cursor = event.target.result;
+            if (cursor) {
+               data.push(cursor.value);
+               cursor.continue();
+            }
+            else {
+               // console.log("Got all data: " + data);
+               onsuccess(data);
+            }
+         };
+      };
+   </script>
+   <script>
+      const getAll = () => {
+         xplot_data_getall(data => {
+            console.log(data);
+         });
+      }
+   </script>
+   <button onclick="xplot_data_add({value: 123})">Add</button>
+   <button onclick="getAll()">Get all</button>
+</body>
+
+</html>
